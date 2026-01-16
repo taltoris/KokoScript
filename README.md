@@ -20,9 +20,6 @@ Designed to run entirely offline on your own machine — perfect for privacy-foc
    ```bash
    git clone https://github.com/taltoris/KokoScript
    cd KokoScript
-2. >> docker compose up --build
+2. docker compose up --build
 3. Point your browser to localhost:5003
 4. Install Kokoro, Use Now, Stream!
-=======
-# KokoScript
-A self-hosted, voice-enabled Bible reading assistant using local TTS models.
