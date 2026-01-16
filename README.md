@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # KokoScript  
 *Speak the Bible with local TTS — no cloud required.*
 
@@ -23,3 +24,7 @@ Designed to run entirely offline on your own machine — perfect for privacy-foc
 2. >> docker compose up --build
 3. Point your browser to localhost:5003
 4. Install Kokoro, Use Now, Stream!
+=======
+# KokoScript
+A self-hosted, voice-enabled Bible reading assistant using local TTS models.
+>>>>>>> origin/main
