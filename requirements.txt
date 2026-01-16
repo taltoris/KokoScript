@@ -1,0 +1,9 @@
+flask==3.0.3
+requests==2.31.0
+beautifulsoup4==4.12.3
+Jinja2==3.1.4
+kokoro-onnx
+onnxruntime
+numpy
+soundfile
+gunicorn==21.2.0

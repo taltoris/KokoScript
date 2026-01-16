@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Bible Kokoro Streamer</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .header {
+            text-align: center; color: white; margin-bottom: 30px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .tabs {
+            display: flex; background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(20px); border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2); overflow: hidden;
+        }
+        .tab {
+            flex: 1; padding: 20px 30px; cursor: pointer; transition: all 0.3s;
+            font-weight: 600; border-bottom: 3px solid transparent;
+        }
+        .tab:hover { background: rgba(99, 102, 241, 0.1); }
+        .tab.active { background: #6366f1; color: white; }
+        .tab-content {
+            display: none; background: rgba(255,255,255,0.95); margin-top: 25px;
+            padding: 40px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            backdrop-filter: blur(20px);
+        }
+        .tab-content.active { display: block; }
+        .models-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 25px; }
+        .model-card {
+            background: white; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border-left: 5px solid #6366f1; transition: all 0.3s; cursor: pointer;
+        }
+        .model-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
+        .btn {
+            padding: 14px 28px; border: none; border-radius: 12px; cursor: pointer;
+            font-weight: 600; font-size: 16px; transition: all 0.3s; margin: 5px;
+            min-width: 120px;
+        }
+        .btn-primary { background: linear-gradient(45deg, #6366f1, #8b5cf6); color: white; }
+        .btn-danger { background: linear-gradient(45deg, #ef4444, #dc2626); color: white; }
+        .btn-success { background: linear-gradient(45deg, #10b981, #059669); color: white; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .metric { font-size: 22px; font-weight: bold; color: #1f2937; margin-bottom: 10px; }
+        .status { padding: 12px 20px; border-radius: 25px; font-weight: 500; display: inline-block; margin: 10px 0; }
+        .status.installed { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .status.not-installed { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
+        .player-controls { display: flex; gap: 20px; margin: 40px 0; flex-wrap: wrap; }
+        .form-group { margin-bottom: 25px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 12px; color: #374151; font-size: 16px; }
+        .form-group select, .form-group input[type="range"] {
+            width: 100%; padding: 16px; border: 2px solid #e5e7eb; border-radius: 12px;
+            font-size: 16px; background: white;
+        }
+        .status-display {
+            padding: 25px; border-radius: 16px; margin: 30px 0; font-weight: 600; font-size: 18px;
+        }
+        .status-display.streaming {
+            background: linear-gradient(90deg, #dcfce7, #bbf7d0);
+            border: 2px solid #10b981; color: #166534; animation: pulse 2s infinite;
+        }
+        .status-display.stopped {
+            background: linear-gradient(90deg, #fef3c7, #fde68a);
+            border: 2px solid #f59e0b; color: #92400e;
+        }
+        #bible-audio {
+            width: 100%; margin-top: 25px; border-radius: 12px;
+            background: #f8fafc;
+        }
+        .chapter-display {
+            background: #f8fafc; padding: 25px; border-radius: 16px; margin-top: 20px;
+            max-height: 300px; overflow-y: auto; font-size: 16px; line-height: 1.8;
+        }
+        .chapter-display .chunk {
+            margin-bottom: 10px;
+        }
+        .chapter-display .chunk.previous {
+            color: #9ca3af;
+        }
+        .chapter-display .chunk.current {
+            color: #000;
+            font-weight: 600;
+            background: #fef3c7;
+            padding: 5px 10px;
+            border-radius: 8px;
+            margin: 5px 0;
+        }
+        .chapter-display .chunk.next {
+            color: #9ca3af;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        .progress { height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; margin: 10px 0; }
+        .progress-bar { height: 100%; background: linear-gradient(90deg, #6366f1, #8b5cf6); transition: width 0.3s; }
+        .loading { text-align: center; color: #6b7280; font-size: 18px; padding: 60px; }
+        .error-msg { background: #fee; color: #c33; padding: 15px; border-radius: 8px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1> Bible Kokoro Streamer</h1>
+            <p>Local kokoro-onnx TTS  Bible APIs  Tanakh & Christian Orders  Python 3.13</p>
+        </div>
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('models')"> Voice Models</div>
+            <div class="tab" onclick="showTab('player')"> Bible Player</div>
+            <div class="tab" onclick="showTab('voices')"> Installed</div>
+        </div>
+        <!-- Models Tab -->
+        <div id="models" class="tab-content active">
+            <h2> Download Kokoro TTS Models</h2>
+            <p style="color: #6b7280; margin-bottom: 30px;">High-quality offline TTS voices for Bible streaming. All models ~82MB.</p>
+            <div class="models-grid" id="models-grid">
+                <div class="model-card loading">
+                    <div style="font-size: 48px; margin-bottom: 20px;"></div>
+                    <h3>Scanning models...</h3>
+                </div>
+            </div>
+        </div>
+        <!-- Player Tab -->
+        <div id="player" class="tab-content">
+            <h2> Continuous Bible Audio Streamer</h2>
+            <div class="form-group">
+                <label>Book Order</label>
+                <select id="book-order" onchange="loadBooks()">
+                    <option value="christian">Christian (66 books)</option>
+                    <option value="tanakh">Tanakh (24 books)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Book</label>
+                <select id="book-select" onchange="updateChapterSlider()"></select>
+            </div>
+            <div class="form-group">
+                <label>Chapter <span id="chapter-display">1</span> / <span id="max-chapters">50</span></label>
+                <input type="range" id="chapter-slider" min="1" max="50" value="1">
+            </div>
+            <div class="form-group">
+                <label>Translation</label>
+                <select id="translation">
+                    <option value="KJV">KJV (King James)</option>
+                    <option value="NIV">NIV</option>
+                    <option value="ESV">ESV</option>
+                    <option value="WEB">WEB (Public Domain)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Kokoro Voice Model</label>
+                <select id="voice-model-select">
+                    <option value="">-- Select a model first --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Voice Style</label>
+                <select id="voice-select">
+                    <option value="af_sky">Sky (Female US)</option>
+                    <option value="af_bella">Bella (Female US)</option>
+                    <option value="bf_emma">Emma (Female UK)</option>
+                    <option value="am_adam">Adam (Male US)</option>
+                    <option value="af_sarah">Sarah (Female US)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Speed <span id="speed-display">1.0x</span></label>
+                <input type="range" id="speed-slider" min="0.5" max="2.0" step="0.1" value="1.0">
+            </div>
+            <div class="player-controls">
+                <button class="btn btn-primary" id="start-btn" onclick="startStreaming()"> Start Streaming</button>
+                <button class="btn btn-danger" id="stop-btn" onclick="stopStreaming()" disabled> Stop</button>
+                <button class="btn btn-success" id="jump-btn" onclick="jumpChapter()" disabled> Jump</button>
+            </div>
+            <div id="status" class="status-display stopped">
+                Select book, chapter, and voice  Start streaming the entire Bible!
+            </div>
+            <div id="error-display"></div>
+            <div id="current-chapter" style="display: none;">
+                <h3 id="chapter-title"></h3>
+                <div id="chapter-text" class="chapter-display"></div>
+                <audio id="bible-audio" controls preload="auto" autoplay></audio>
+                <div class="progress"><div class="progress-bar" id="audio-progress" style="width: 0%"></div></div>
+            </div>
+        </div>
+        <!-- Installed Voices Tab -->
+        <div id="voices" class="tab-content">
+            <h2> Installed Voice Models</h2>
+            <div class="models-grid" id="voice-grid">
+                <div class="model-card loading">
+                    <div style="font-size: 48px; margin-bottom: 20px;"></div>
+                    <h3>No models installed</h3>
+                    <p>Download from the Models tab to start streaming</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let currentStatus = { active: false };
+        let availableModels = [];
+        let bookChapters = {};
+        let currentAudio = null;
+        let isStreaming = false;
+
+        // Tab switching
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            document.querySelector(`[onclick="showTab('${tabName}')"]`).classList.add('active');
+            if (tabName === 'models') loadModels();
+            else if (tabName === 'player') { loadBooks(); updateStatus(); }
+            else if (tabName === 'voices') loadVoices();
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('error-display');
+            el.innerHTML = `<div class="error-msg"> ${msg}</div>`;
+            setTimeout(() => el.innerHTML = '', 5000);
+        }
+
+        // Load models dynamically
+        async function loadModels() {
+            try {
+                const res = await fetch('/api/models');
+                const data = await res.json();
+                availableModels = data.models;
+                const grid = document.getElementById('models-grid');
+                const voiceSelect = document.getElementById('voice-model-select');
+                
+                grid.innerHTML = '';
+                voiceSelect.innerHTML = '<option value="">-- Select a model --</option>';
+                
+                availableModels.forEach(model => {
+                    const card = document.createElement('div');
+                    card.className = 'model-card';
+                    card.innerHTML = `
+                        <div class="metric">${model.name}</div>
+                        <div style="color: #6b7280; margin-bottom: 15px;">${model.size}</div>
+                        <span class="status ${model.installed ? 'installed' : 'not-installed'}">
+                            ${model.installed ? ' Installed & Ready' : ' Download'}
+                        </span>
+                        <div style="margin-top: 25px; display: flex; gap: 15px; flex-wrap: wrap;">
+                            ${!model.installed ? `<button class="btn btn-primary" onclick="downloadModel('${model.name}')"> Download</button>` : ''}
+                            ${model.installed ? `<button class="btn btn-danger" onclick="deleteModel('${model.name}')"> Delete</button>` : ''}
+                            <button class="btn btn-success" onclick="useModel('${model.name}')" style="flex: 1;">
+                                ${model.installed ? ' Use Now' : 'Select After Download'}
+                            </button>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                    
+                    if (model.installed) {
+                        voiceSelect.innerHTML += `<option value="${model.name}">${model.name}</option>`;
+                    }
+                });
+                
+                if (grid.children.length === 0) {
+                    grid.innerHTML = '<div class="model-card loading">No models found</div>';
+                }
+            } catch(e) {
+                console.error('Failed to load models:', e);
+                document.getElementById('models-grid').innerHTML = '<div class="model-card loading">Failed to load models</div>';
+            }
+        }
+
+        async function loadVoices() {
+            const installed = availableModels.filter(m => m.installed);
+            const grid = document.getElementById('voice-grid');
+            if (installed.length === 0) {
+                grid.innerHTML = `
+                    <div class="model-card" style="text-align: center;">
+                        <div style="font-size: 48px; margin-bottom: 20px;"></div>
+                        <h3>No models installed</h3>
+                        <p>Download from Models tab</p>
+                    </div>
+                `;
+            } else {
+                grid.innerHTML = installed.map(model => `
+                    <div class="model-card">
+                        <div class="metric">${model.name}</div>
+                        <div>${model.size}</div>
+                        <div style="margin-top: 20px; display: flex; gap: 10px;">
+                            <button class="btn btn-danger" onclick="deleteModel('${model.name}')"> Delete</button>
+                            <button class="btn btn-success" onclick="useModel('${model.name}')"> Use in Player</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        async function downloadModel(name) {
+            try {
+                showError('Downloading model... this may take a minute');
+                const res = await fetch(`/api/model/${name}?download=1`);
+                const result = await res.json();
+                if (result.success) {
+                    loadModels();
+                    loadVoices();
+                    showError('Model downloaded successfully!');
+                } else {
+                    showError('Download failed');
+                }
+            } catch(e) {
+                showError('Download failed: ' + e.message);
+            }
+        }
+
+        async function deleteModel(name) {
+            if (confirm(`Delete ${name}?`)) {
+                showError('Model deletion not implemented yet');
+            }
+        }
+
+        function useModel(name) {
+            const installed = availableModels.find(m => m.name === name && m.installed);
+            if (!installed) {
+                showError('Model not installed yet. Please download first.');
+                return;
+            }
+            document.getElementById('voice-model-select').value = name;
+            showTab('player');
+        }
+
+        async function loadBooks() {
+            try {
+                const order = document.getElementById('book-order').value;
+                const res = await fetch(`/api/books?order=${order}`);
+                const data = await res.json();
+                bookChapters = data.chapters || {};
+                
+                const select = document.getElementById('book-select');
+                select.innerHTML = data.books.map(book => `<option value="${book}">${book}</option>`).join('');
+                updateChapterSlider();
+            } catch(e) {
+                showError('Failed to load books');
+            }
+        }
+
+        function updateChapterSlider() {
+            const book = document.getElementById('book-select').value || 'Genesis';
+            const slider = document.getElementById('chapter-slider');
+            const display = document.getElementById('chapter-display');
+            const maxDisplay = document.getElementById('max-chapters');
+            
+            const maxChapters = bookChapters[book] || 50;
+            slider.max = maxChapters;
+            maxDisplay.textContent = maxChapters;
+            
+            slider.oninput = () => {
+                display.textContent = slider.value;
+            };
+            display.textContent = slider.value;
+        }
+
+        async function startStreaming() {
+            const voiceModel = document.getElementById('voice-model-select').value;
+            if (!voiceModel) {
+                showError('Please select a voice model first!');
+                return;
+            }
+            
+            const data = {
+                book: document.getElementById('book-select').value,
+                chapter: parseInt(document.getElementById('chapter-slider').value),
+                translation: document.getElementById('translation').value,
+                voice_model: voiceModel,
+                book_order: document.getElementById('book-order').value
+            };
+            
+            try {
+                const res = await fetch('/api/start', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                
+                if (!result.success) {
+                    showError('Failed to start streaming: ' + (result.error || 'Unknown error'));
+                    return;
+                }
+
+                document.getElementById('start-btn').disabled = true;
+                document.getElementById('stop-btn').disabled = false;
+                document.getElementById('jump-btn').disabled = false;
+                document.getElementById('current-chapter').style.display = 'block';
+                isStreaming = true;
+                streamBible();
+            } catch(e) {
+                showError('Failed to start streaming: ' + e.message);
+            }
+        }
+
+        async function stopStreaming() {
+            isStreaming = false;
+            try {
+                await fetch('/api/stop', { method: 'POST' });
+            } catch(e) {}
+            
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('stop-btn').disabled = true;
+            document.getElementById('jump-btn').disabled = true;
+            const audio = document.getElementById('bible-audio');
+            audio.pause();
+            audio.src = '';
+        }
+
+        async function streamBible() {
+            while (isStreaming) {
+                try {
+                    const res = await fetch('/api/next_chapter');
+                    const data = await res.json();
+                    
+                    if (data.end) {
+                        document.getElementById('status').innerHTML = 'End of book reached!';
+                        document.getElementById('status').className = 'status-display stopped';
+                        stopStreaming();
+                        break;
+                    }
+
+                    const bookName = data.book || 'Unknown';
+                    document.getElementById('chapter-title').textContent = `${bookName} ${data.chapter}`;
+                    
+                    // Get full text and split into chunks
+                    const fullText = data.full_text || data.text || '';
+                    const sentences = fullText.split(/(?<=[.!?])\s+/).filter(s => s.trim());
+                    
+                    // Group into chunks of 3 sentences
+                    const chunkSize = 3;
+                    const textChunks = [];
+                    for (let i = 0; i < sentences.length; i += chunkSize) {
+                        textChunks.push(sentences.slice(i, i + chunkSize).join(' '));
+                    }
+                    
+                    // Display all chunks initially
+                    const chapterTextEl = document.getElementById('chapter-text');
+                    chapterTextEl.innerHTML = textChunks.map((chunk, idx) => 
+                        `<div class="chunk" data-chunk="${idx}">${chunk}</div>`
+                    ).join('');
+
+                    const speed = document.getElementById('speed-slider').value;
+                    const voice = document.getElementById('voice-select').value;
+                    
+                    // Stream chapter in chunks with preloading
+                    let chunkIndex = 0;
+                    let totalChunks = null;
+                    let nextChunkPromise = null;
+                    let currentBlobUrl = null;
+                    
+                    while (isStreaming) {
+                        // Get current chunk (either from preload or fetch now)
+                        let audioBlob, currentTotalChunks;
+                        
+                        if (nextChunkPromise) {
+                            // Use preloaded chunk
+                            console.log(`Using preloaded chunk ${chunkIndex}`);
+                            const result = await nextChunkPromise;
+                            if (!result) break; // End of chapter
+                            audioBlob = result.blob;
+                            currentTotalChunks = result.totalChunks;
+                        } else {
+                            // Fetch first chunk
+                            const result = await fetchChunk(data.chapter, chunkIndex, speed, voice);
+                            if (!result) break;
+                            audioBlob = result.blob;
+                            currentTotalChunks = result.totalChunks;
+                        }
+                        
+                        if (totalChunks === null) {
+                            totalChunks = currentTotalChunks;
+                            console.log(`Chapter has ${totalChunks} chunks`);
+                        }
+                        
+                        // Update text highlighting
+                        updateChunkHighlight(chunkIndex);
+                        
+                        // Start preloading next chunk immediately
+                        const nextIndex = chunkIndex + 1;
+                        if (nextIndex < totalChunks) {
+                            console.log(`Starting preload of chunk ${nextIndex}`);
+                            nextChunkPromise = fetchChunk(data.chapter, nextIndex, speed, voice);
+                        } else {
+                            nextChunkPromise = null;
+                        }
+                        
+                        // Clean up previous chunk's blob URL
+                        if (currentBlobUrl) {
+                            URL.revokeObjectURL(currentBlobUrl);
+                            console.log(`Cleaned up chunk ${chunkIndex - 1}`);
+                        }
+                        
+                        // Play current chunk
+                        currentBlobUrl = URL.createObjectURL(audioBlob);
+                        const audio = document.getElementById('bible-audio');
+                        audio.src = currentBlobUrl;
+                        
+                        await new Promise((resolve, reject) => {
+                            const timeout = setTimeout(() => {
+                                reject(new Error('Audio load timeout'));
+                            }, 10000);
+                            
+                            audio.onloadeddata = async () => {
+                                clearTimeout(timeout);
+                                console.log(`Chunk ${chunkIndex}/${totalChunks} playing, duration: ${audio.duration.toFixed(1)}s`);
+                                
+                                try {
+                                    await audio.play();
+                                } catch(e) {
+                                    reject(e);
+                                }
+                            };
+                            
+                            audio.onerror = (e) => {
+                                clearTimeout(timeout);
+                                reject(new Error('Audio load error'));
+                            };
+                            
+                            audio.onended = () => {
+                                console.log('Chunk finished');
+                                resolve();
+                            };
+                        });
+                        
+                        // Clear blob reference to help garbage collection
+                        audioBlob = null;
+                        
+                        chunkIndex++;
+                        
+                        if (chunkIndex >= totalChunks) {
+                            console.log('Chapter complete');
+                            break;
+                        }
+                    }
+                    
+                    // Clean up last chunk
+                    if (currentBlobUrl) {
+                        URL.revokeObjectURL(currentBlobUrl);
+                        console.log('Cleaned up final chunk');
+                    }
+                    
+                } catch(e) {
+                    console.error('Streaming error:', e);
+                    showError('Streaming error: ' + e.message);
+                    break;
+                }
+            }
+        }
+        
+        function updateChunkHighlight(currentIndex) {
+            const chunks = document.querySelectorAll('.chunk');
+            chunks.forEach((chunk, idx) => {
+                chunk.classList.remove('previous', 'current', 'next');
+                if (idx < currentIndex) {
+                    chunk.classList.add('previous');
+                } else if (idx === currentIndex) {
+                    chunk.classList.add('current');
+                    // Scroll current chunk into view
+                    chunk.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else if (idx === currentIndex + 1) {
+                    chunk.classList.add('next');
+                } else {
+                    chunk.classList.add('next');
+                }
+            });
+        }
+        
+        async function fetchChunk(chapter, chunkIndex, speed, voice) {
+            try {
+                const audioUrl = `/api/stream_audio/${chapter}?speed=${speed}&voice=${voice}&sentence=${chunkIndex}&t=${Date.now()}`;
+                console.log(`Fetching chunk ${chunkIndex}:`, audioUrl);
+                
+                const audioRes = await fetch(audioUrl);
+                
+                if (audioRes.status === 404) {
+                    console.log('End of chapter reached');
+                    return null;
+                }
+                
+                if (!audioRes.ok) {
+                    throw new Error(`HTTP ${audioRes.status}`);
+                }
+                
+                const totalChunks = parseInt(audioRes.headers.get('X-Total-Chunks') || '0');
+                const blob = await audioRes.blob();
+                
+                console.log(`Chunk ${chunkIndex} fetched (${(blob.size/1024).toFixed(1)} KB)`);
+                
+                return { blob, totalChunks };
+            } catch(error) {
+                console.error(`Error fetching chunk ${chunkIndex}:`, error);
+                showError(`Error loading audio chunk: ${error.message}`);
+                return null;
+            }
+        }
+
+        function jumpChapter() {
+            const audio = document.getElementById('bible-audio');
+            audio.pause();
+            audio.src = '';
+            // Will load next chapter in the streamBible loop
+        }
+
+        async function updateStatus() {
+            try {
+                const res = await fetch('/api/status');
+                currentStatus = await res.json();
+                const statusEl = document.getElementById('status');
+                
+                if (currentStatus.active) {
+                    statusEl.innerHTML = `
+                        <strong> Streaming Live</strong><br>
+                        ${currentStatus.book} ${currentStatus.chapter}  
+                        Buffer: ${currentStatus.buffer || 0}/3  
+                        Voice: ${currentStatus.voice || 'None'}
+                    `;
+                    statusEl.className = 'status-display streaming';
+                } else {
+                    statusEl.innerHTML = 'Select book, chapter, and voice  Start streaming the entire Bible!';
+                    statusEl.className = 'status-display stopped';
+                }
+            } catch(e) {
+                console.error('Status update failed:', e);
+            }
+        }
+
+        document.getElementById('speed-slider').oninput = function() {
+            document.getElementById('speed-display').textContent = this.value + 'x';
+        };
+
+        document.getElementById('chapter-slider').oninput = function() {
+            document.getElementById('chapter-display').textContent = this.value;
+        };
+
+        // Initialize
+        loadModels();
+        loadBooks();
+        setInterval(updateStatus, 2000);
+    </script>
+</body>
+</html>

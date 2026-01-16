@@ -1,0 +1,7 @@
+__pycache__/
+kokoro_models/
+*.log
+.env
+*.db
+*.venv
+*clean-ascii.sh

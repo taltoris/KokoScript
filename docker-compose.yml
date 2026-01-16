@@ -1,0 +1,17 @@
+services:
+  kokoscript:
+    build: .
+    ports:
+      - "5003:5003"
+    volumes:
+      - ./kokoro_models:/app/sandbox/KokoScript/kokoro_models
+      - ./templates:/app/sandbox/KokoScript/templates
+    environment:
+      - FLASK_ENV=production
+    restart: unless-stopped
+    networks:
+      - kokonet
+
+networks:
+  kokonet:
+    driver: bridge
